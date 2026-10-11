@@ -87,6 +87,19 @@ const content=document.getElementById('content'), buttons=[...document.querySele
 const envelope=document.getElementById('envelope'), opening=document.getElementById('opening'), surprises=document.getElementById('surprises');
 const readyTab=document.getElementById('readyTab'), unlockNote=document.getElementById('unlockNote');
 const visited=new Set(); let finaleStarted=false, candleCount=0, storyIndex=0, audioCtx=null, melodyTimer=null;
+  let backupCaptions = {};
+fetch('./kanika-captions.json')
+  .then(response => {
+    if (!response.ok) throw new Error('Captions file not found');
+    return response.json();
+  })
+  .then(saved => {
+    backupCaptions = saved;
+    if (buttons.some(b => b.dataset.view === 'memories' && b.classList.contains('active'))) {
+      renderMemories();
+    }
+  })
+  .catch(error => console.error('Could not load caption backup:', error));
 const storyLines=[
  "Watching you grow into the person you are today has been such a beautiful thing. ♡",
  "No matter how grown-up life gets, I’ll always be your fun, slightly annoying bestie. ♡"
@@ -108,7 +121,11 @@ function renderMemories(){
  const placements=[4,9,14,20,27,33,40];
  placements.forEach((pos,j)=>memories.splice(Math.min(pos-1,memories.length),0,{type:'video',n:j+1}));
  const defaultCaptions=memories.map((m,i)=>m.type==='video'?`little clip ${m.n} ♡`:['the random days','proof we go outside','the laughing fits','my favourite human','core memory unlocked','more chaos, please ♡'][i%6]);
- let captions={}; try{captions=JSON.parse(localStorage.getItem('kanikaCaptions')||'{}')}catch(e){}
+ let captions={};
+try {
+  captions = JSON.parse(localStorage.getItem('kanikaCaptions') || '{}');
+} catch(e) {}
+captions = {...backupCaptions, ...captions};
  content.innerHTML=`<h2>Our little collection of chaos ♡</h2><p>38 photos, 7 little clips, and a million memories.</p><p class="note editor-only">Creator mode: edit captions here, then export them. File names: <code>photo-01.jpg</code> to <code>photo-38.jpg</code>, and <code>video-01.mp4</code> to <code>video-07.mp4</code>. Keep them in the <code>media</code> folder.</p><div class="editor-only"><button class="action secondary" id="toggleCaptions">Edit captions ✎</button><button class="action secondary" id="exportCaptions">Export captions</button></div><div class="memory-grid">${memories.map((m,i)=>{let id=m.type==='photo'?`photo-${String(m.n).padStart(2,'0')}.jpg`:`video-${String(m.n).padStart(2,'0')}.mp4`;let cap=captions[id]||defaultCaptions[i];return `<article class="polaroid"><div class="media-slot">${m.type==='photo'?`<span class="placeholder-label">Add ${id}</span><img loading="lazy" src="media/${id}" alt="Memory ${m.n}" onerror="this.remove()" onload="this.previousElementSibling.remove()">`:`<span class="placeholder-label">Add ${id}</span><video controls muted loop playsinline preload="metadata" aria-label="Memory clip ${m.n}" onloadeddata="this.previousElementSibling.remove()" onerror="this.style.display='none'"><source src="media/${id}" type="video/mp4"></video>`}</div><div class="caption" data-caption-id="${id}">${escapeHTML(cap)}</div><input class="caption-edit editor-only hidden" data-edit-id="${id}" value="${escapeAttr(cap)}" aria-label="Caption for ${id}" maxlength="160"></article>`}).join('')}</div><p class="note" style="margin-top:18px">Each video waits for her to press play, then loops until she pauses it. Use the video controls to turn sound on or off.</p>`;
  // Videos stay paused until Kanika presses play. Each clip then loops until she pauses it.
  if(EDIT_MODE)document.getElementById('toggleCaptions').addEventListener('click',e=>{const inputs=[...content.querySelectorAll('.caption-edit')],on=inputs[0]?.classList.contains('hidden');inputs.forEach(inp=>{inp.classList.toggle('hidden',!on);const cap=content.querySelector(`[data-caption-id="${CSS.escape(inp.dataset.editId)}"]`);cap.classList.toggle('hidden',on)});e.currentTarget.textContent=on?'Done editing ✓':'Edit captions ✎';if(on&&inputs[0])inputs[0].focus()});
